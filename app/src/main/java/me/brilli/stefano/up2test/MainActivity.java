@@ -2,47 +2,54 @@ package me.brilli.stefano.up2test;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
+import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.support.v7.app.ActionBarActivity;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Debug;
+import android.support.design.widget.Snackbar;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ListView;
 
-import java.util.Date;
-import java.util.UUID;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 
-public class MainActivity extends ActionBarActivity implements View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     static String TAG = "MAIN";
 
-    BluetoothManager bluetoothManager;
-    BluetoothAdapter mBluetoothAdapter;
-    BluetoothDevice device;
+    private ListView listview;
+    private ArrayList<String> mDeviceList = new ArrayList<String>();
+
+    private BluetoothAdapter mBluetoothAdapter;
+    private BluetoothDevice device;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-        bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
+        listview = (ListView) findViewById(R.id.listview1);
+
+        // Bluetooth
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        mBluetoothAdapter.startDiscovery();
+
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mReceiver, filter);
+
         device = mBluetoothAdapter.getRemoteDevice("E9:7C:2F:27:15:00");
 
-        setContentView(R.layout.activity_main);
+
         Button b = (Button)findViewById(R.id.testButton);
         b.setOnClickListener(this);
 
@@ -53,7 +60,35 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                 disconnect();
             }
         });
+
+        Button refresh = (Button)findViewById(R.id.button3);
+        refresh.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBluetoothAdapter.cancelDiscovery();
+                mBluetoothAdapter.startDiscovery();
+            }
+        });
     }
+
+    @Override
+    protected void onDestroy() {
+        unregisterReceiver(mReceiver);
+        super.onDestroy();
+    }
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                mDeviceList.add(device.getName() + "\n" + device.getAddress());
+                Log.i("BT", device.getName() + "\n" + device.getAddress());
+                listview.setAdapter(new ArrayAdapter<String>(context,
+                        android.R.layout.simple_list_item_1, mDeviceList));
+            }
+        }
+    };
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
